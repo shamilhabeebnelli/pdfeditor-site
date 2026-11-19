@@ -37,8 +37,11 @@
   .pagewrap { position: relative; box-shadow: 0 2px 14px rgba(15,23,42,.18);
               background: #fff; }
   .pagewrap canvas { display: block; }
-  .overlay { position: absolute; inset: 0; }
-  .textzone { position: absolute; cursor: text; border: 1px solid transparent; }
+  .overlay { position: absolute; inset: 0; touch-action: manipulation; }
+  /* whiteout tool active: a finger drag on a page draws a patch instead of scrolling */
+  #pages.drawtouch .overlay { touch-action: none; }
+  .textzone { position: absolute; cursor: text; border: 1px solid transparent;
+              touch-action: manipulation; } /* let finger pans starting on text scroll the page */
   .textzone:hover { border-color: var(--accent); background: rgba(37,99,235,.08); }
   .editbar { position: absolute; z-index: 5; display: flex; gap: 3px; align-items: stretch; }
   .editbar button { padding: 0 7px; font-size: 12px; font-weight: 700; border-radius: 5px;
