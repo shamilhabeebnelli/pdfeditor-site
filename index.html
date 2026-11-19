@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="icon" href="data:,">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<meta name="theme-color" content="#dc2626">
 <title>PDF Desk — free local PDF editor</title>
 <style>
   :root {
@@ -16,7 +17,8 @@
   header { background: var(--panel); border-bottom: 1px solid #e2e8f0; padding: 10px 16px;
            display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
            position: sticky; top: 0; z-index: 30; }
-  header .logo { font-weight: 700; font-size: 18px; }
+  header .logo { font-weight: 700; font-size: 18px; display: flex; align-items: center; gap: 8px; }
+  header .logo img { width: 30px; height: 30px; display: block; }
   header .logo span { color: var(--accent); }
   .privacy { margin-left: auto; font-size: 12px; color: #15803d; white-space: nowrap; }
   button, label.filebtn { font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 8px;
@@ -67,7 +69,7 @@
 </head>
 <body>
 <header>
-  <div class="logo">PDF<span>Desk</span></div>
+  <div class="logo"><img src="logo.svg" width="30" height="30" alt="N PDF logo"><div>PDF<span>Desk</span></div></div>
   <label class="filebtn">Open PDF<input id="file" type="file" accept="application/pdf" hidden></label>
   <span class="sep"></span>
   <button data-tool="edit" class="tool active">Edit text</button>
@@ -107,4 +109,4 @@
 
 <script type="module" src="./app.js"></script>
 </body>
-</html>
+                      </html>
