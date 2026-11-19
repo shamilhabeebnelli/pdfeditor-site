@@ -261,26 +261,43 @@ function showOverflowConfirm(view, bar, onApply, onCancel) {
 }
 
 // ---------- whiteout drag + add text ----------
-pagesEl.addEventListener('mousedown', (e) => {
+// Pointer events unify mouse, pen and touch. For a finger drag to draw instead
+// of scrolling the page, the overlay needs touch-action: none; it is applied
+// only while the whiteout tool is active (#pages.drawtouch, see CSS), so page
+// scrolling keeps working in the other tools.
+pagesEl.addEventListener('pointerdown', (e) => {
   if (e.target.closest('.editbar')) return;
   const overlay = e.target.closest('.overlay');
   if (!overlay) return;
   const view = pageViews.find((v) => v && v.overlay === overlay);
   if (!view) return;
-  e.preventDefault(); // keep browser default focus change from blurring a fresh editbox
+  if (!e.isPrimary) return; // single-pointer gestures only (ignore 2nd finger)
+  // Mouse: preventDefault preserves the existing focus/editbox behavior.
+  // Whiteout on touch: suppress compatibility mouse events (touch-action: none
+  // already keeps the gesture from scrolling). In edit/add-text touch mode the
+  // gesture is left to the browser so a finger drag can still pan the page.
+  if (e.pointerType === 'mouse' || tool === 'whiteout') e.preventDefault();
   const rect = overlay.getBoundingClientRect();
   const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
 
   if (tool === 'whiteout') {
+    const pid = e.pointerId;
     const box = document.createElement('div');
     box.className = 'wrect'; overlay.append(box);
+    const unhook = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', cancel);
+    };
     const move = (ev) => {
+      if (ev.pointerId !== pid) return;
       const cx = ev.clientX - rect.left, cy = ev.clientY - rect.top;
       box.style.left = Math.min(sx, cx) + 'px'; box.style.top = Math.min(sy, cy) + 'px';
       box.style.width = Math.abs(cx - sx) + 'px'; box.style.height = Math.abs(cy - sy) + 'px';
     };
     const up = (ev) => {
-      window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up);
+      if (ev.pointerId !== pid) return;
+      unhook();
       const cx = ev.clientX - rect.left, cy = ev.clientY - rect.top;
       const w = Math.abs(cx - sx), h = Math.abs(cy - sy);
       box.remove();
@@ -291,7 +308,13 @@ pagesEl.addEventListener('mousedown', (e) => {
                          w: w / scale, h: h / scale } });
       repaintAll(); refreshButtons();
     };
-    window.addEventListener('mousemove', move); window.addEventListener('mouseup', up);
+    const cancel = (ev) => {
+      if (ev.pointerId !== pid) return;
+      unhook(); box.remove(); // gesture taken over by the browser (e.g. scroll): drop the draft
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', cancel);
   }
 
   if (tool === 'addtext') {
@@ -323,7 +346,10 @@ pagesEl.addEventListener('mousedown', (e) => {
 // ---------- toolbar ----------
 document.querySelectorAll('button.tool').forEach((b) => b.addEventListener('click', () => {
   document.querySelectorAll('button.tool').forEach((x) => x.classList.remove('active'));
-  b.classList.add('active'); tool = b.dataset.tool; repaintAll();
+  b.classList.add('active'); tool = b.dataset.tool;
+  // whiteout mode: finger drags on a page draw a patch instead of scrolling
+  pagesEl.classList.toggle('drawtouch', tool === 'whiteout');
+  repaintAll();
 }));
 $('#undo').onclick = () => { ops.pop(); repaintAll(); refreshButtons(); };
 $('#clear').onclick = () => { ops = []; pageViews.forEach((v) => v && v.zones.forEach((z) => (z.used = false))); repaintAll(); refreshButtons(); };
