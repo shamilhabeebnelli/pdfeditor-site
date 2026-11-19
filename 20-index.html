@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="64x64" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#dc2626">
+<title>PDF Desk — free local PDF editor</title>
+<style>
+  :root {
+    --ink: #16212e; --accent: #2563eb; --bg: #f4f6fa; --panel: #ffffff;
+    --warn-bg: #fff7ed; --warn-line: #f59e0b;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+         background: var(--bg); color: var(--ink); }
+  header { background: var(--panel); border-bottom: 1px solid #e2e8f0; padding: 10px 16px;
+           display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+           position: sticky; top: 0; z-index: 30; }
+  header .logo { font-weight: 700; font-size: 18px; display: flex; align-items: center; gap: 8px; }
+  header .logo img { width: 30px; height: 30px; display: block; }
+  header .logo span { color: var(--accent); }
+  .privacy { margin-left: auto; font-size: 12px; color: #15803d; white-space: nowrap; }
+  button, label.filebtn { font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 8px;
+           border: 1px solid #cbd5e1; background: #fff; cursor: pointer; }
+  button:hover, label.filebtn:hover { border-color: var(--accent); }
+  button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button:disabled { opacity: .45; cursor: default; }
+  .sep { width: 1px; height: 22px; background: #e2e8f0; }
+  .flatten { display: flex; align-items: center; gap: 5px; font-size: 12px; }
+  #notice { display: none; margin: 10px auto; max-width: 900px; padding: 10px 14px;
+            background: var(--warn-bg); border: 1px solid var(--warn-line);
+            border-radius: 8px; font-size: 13px; }
+  #drop { margin: 60px auto; max-width: 640px; text-align: center; padding: 60px 30px;
+          border: 2px dashed #cbd5e1; border-radius: 16px; color: #64748b; }
+  #pages { display: flex; flex-direction: column; align-items: center; gap: 24px;
+           padding: 24px 12px 80px; }
+  .pagewrap { position: relative; box-shadow: 0 2px 14px rgba(15,23,42,.18);
+              background: #fff; }
+  .pagewrap canvas { display: block; }
+  .overlay { position: absolute; inset: 0; touch-action: manipulation; }
+  /* whiteout tool active: a finger drag on a page draws a patch instead of scrolling */
+  #pages.drawtouch .overlay { touch-action: none; }
+  .textzone { position: absolute; cursor: text; border: 1px solid transparent;
+              touch-action: manipulation; } /* let finger pans starting on text scroll the page */
+  .textzone:hover { border-color: var(--accent); background: rgba(37,99,235,.08); }
+  .editbar { position: absolute; z-index: 5; display: flex; gap: 3px; align-items: stretch; }
+  .editbar button { padding: 0 7px; font-size: 12px; font-weight: 700; border-radius: 5px;
+                    border: 1px solid #cbd5e1; background: #fff; }
+  .editbar button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .editbar button.i { font-style: italic; font-family: Georgia, serif; }
+  .editbar button.u { text-decoration: underline; }
+  .editbar button.s { text-decoration: line-through; }
+  .editbox { font: inherit; padding: 0 2px;
+             border: 2px solid var(--accent); border-radius: 3px; background: #fff; }
+  .substnote { font-size: 10px; color: #b45309; align-self: center; max-width: 130px; line-height: 1.1; }
+  .ovfbar { display: flex; gap: 6px; align-items: center; background: var(--warn-bg);
+            border: 1px solid var(--warn-line); border-radius: 6px; padding: 4px 8px;
+            font-size: 12px; max-width: 340px; }
+  .ovfbar .warnapply { background: #b45309; color: #fff; border-color: #b45309; }
+  .wrect { position: absolute; background: #fff; outline: 1px dashed #94a3b8; }
+  .wrect.armed { outline-color: #ef4444; }
+  .tstamp { position: absolute; white-space: nowrap; }
+  .tool-hint { font-size: 12px; color: #64748b; padding: 2px 6px; }
+  #pagebadge { font-size: 12px; color: #475569; }
+  footer { max-width: 900px; margin: 0 auto; padding: 16px; font-size: 12px; color: #64748b; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><img src="logo.svg" width="30" height="30" alt="N PDF logo"><div>PDF<span>Desk</span></div></div>
+  <label class="filebtn">Open PDF<input id="file" type="file" accept="application/pdf" hidden></label>
+  <span class="sep"></span>
+  <button data-tool="edit" class="tool active">Edit text</button>
+  <button data-tool="whiteout" class="tool">Whiteout</button>
+  <button data-tool="addtext" class="tool">Add text</button>
+  <span class="sep"></span>
+  <button id="undo" disabled>Undo</button>
+  <button id="clear" disabled>Clear all</button>
+  <span class="sep"></span>
+  <button id="zoomout">−</button><span id="pagebadge">100%</span><button id="zoomin">+</button>
+  <span class="sep"></span>
+  <label class="flatten" title="Export pages as images. Covered content is truly removed, but text is no longer selectable.">
+    <input type="checkbox" id="flattenChk"> Flatten export (irreversible masking)
+  </label>
+  <button id="export" class="primary" disabled>Export PDF</button>
+  <div class="privacy">🔒 Private by design: your file never leaves this device.</div>
+</header>
+
+<div id="notice"></div>
+<div id="drop">Drop a PDF here, or use <b>Open PDF</b>.<br><br>
+  <small>Everything runs locally in your browser. No uploads, no accounts, no page limits.</small>
+</div>
+<div id="pages"></div>
+
+<footer>
+  <b>Honest scope.</b> Whiteout hides content visually; in a normal export the covered data can
+  still exist inside the file. For irreversible masking, tick <i>Flatten export</i> (the page
+  becomes an image and its text is no longer selectable; flatten draws every script your device
+  can display, as image). Text edits keep the original position, size and alignment and use the
+  closest matching built-in font (bold/italic adjustable with the B/I buttons); if the document's
+  own embedded font is not a standard family, the replacement can look slightly different - the
+  editor marks those lines when you click them. A replacement wider than the original asks before
+  covering whatever stands to its right. Direct text edits support Latin-script text; for other
+  scripts use Flatten export (text becomes part of the page image, not selectable). Scanned
+  (image-only) pages have no editable text, but whiteout and added text still work.
+</footer>
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>
